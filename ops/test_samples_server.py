@@ -199,6 +199,16 @@ class SamplesServerTest(unittest.TestCase):
         status, _, _ = self.request("PUT", "/samples/proj/a.bin", b"new", AUTH)
         self.assertEqual(status, 201)
 
+    def test_deleting_the_last_file_removes_the_project_folder(self) -> None:
+        self.request("PUT", "/samples/proj/a.bin", b"a", AUTH)
+        self.request("PUT", "/samples/proj/b.bin", b"b", AUTH)
+        self.request("DELETE", "/samples/proj/a.bin", headers=AUTH)
+        self.assertTrue((self.root / "proj").is_dir())  # b.bin keeps it
+        self.request("DELETE", "/samples/proj/b.bin", headers=AUTH)
+        self.assertFalse((self.root / "proj").exists())
+        _, data, _ = self.request("GET", "/samples/", headers=AUTH)
+        self.assertEqual(data, {"projects": []})
+
 
 if __name__ == "__main__":
     unittest.main()

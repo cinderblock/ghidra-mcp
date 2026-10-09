@@ -27,6 +27,7 @@ Standard library only, so the image needs nothing installed for it.
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import hmac
 import json
@@ -286,12 +287,21 @@ class SamplesHandler(BaseHTTPRequestHandler):
             self._error(HTTPStatus.METHOD_NOT_ALLOWED, "DELETE /samples/<project>/<name>",
                         headers={"Allow": "GET"})
             return
-        target = self.root / segments[0] / segments[1]
+        project_dir = self.root / segments[0]
         try:
-            target.unlink()
+            (project_dir / segments[1]).unlink()
         except FileNotFoundError:
             self._error(HTTPStatus.NOT_FOUND, f"no file {segments[0]}/{segments[1]}")
             return
+        # The last file out takes its project folder with it, so finished
+        # projects stop showing up in GET /samples/. Anything still in there
+        # (another file, or an upload in flight) keeps it.
+        if not any(project_dir.iterdir()):
+            try:
+                project_dir.rmdir()
+            except OSError as e:
+                if e.errno not in (errno.ENOTEMPTY, errno.EEXIST, errno.ENOENT):
+                    raise
         self._send_json(HTTPStatus.NO_CONTENT)
 
 
