@@ -9,6 +9,7 @@ import hashlib
 import http.client
 import json
 import os
+import socket
 import tempfile
 import threading
 import unittest
@@ -116,6 +117,37 @@ class SamplesServerTest(unittest.TestCase):
         status, data, _ = self.request("PUT", "/samples/proj/big.bin", b"x" * 1025, AUTH)
         self.assertEqual(status, 413)
         self.assertFalse((self.root / "proj" / "big.bin").exists())
+
+    def test_expect_100_turns_away_a_doomed_upload_before_the_body(self) -> None:
+        # Raw socket: http.client never waits for 100 Continue, curl does.
+        with socket.create_connection(("127.0.0.1", self.port), timeout=5) as sock:
+            sock.sendall(
+                b"PUT /samples/proj/big.bin HTTP/1.1\r\nHost: x\r\n"
+                + f"Authorization: Bearer {TOKEN}\r\n".encode()
+                + b"Content-Length: 5000\r\nExpect: 100-continue\r\n\r\n"
+            )
+            status_line = sock.makefile("rb").readline()
+        self.assertIn(b" 413 ", status_line)
+        self.assertFalse((self.root / "proj").exists())
+
+    def test_expect_100_lets_a_good_upload_through(self) -> None:
+        with socket.create_connection(("127.0.0.1", self.port), timeout=5) as sock:
+            sock.sendall(
+                b"PUT /samples/proj/ok.bin HTTP/1.1\r\nHost: x\r\n"
+                + f"Authorization: Bearer {TOKEN}\r\n".encode()
+                + b"Content-Length: 3\r\nExpect: 100-continue\r\n\r\n"
+            )
+            reader = sock.makefile("rb")
+            self.assertIn(b" 100 ", reader.readline())
+            reader.readline()  # blank line ending the interim response
+            sock.sendall(b"abc")
+            self.assertIn(b" 201 ", reader.readline())
+        self.assertEqual((self.root / "proj" / "ok.bin").read_bytes(), b"abc")
+
+    def test_small_rejected_upload_is_drained_not_cut_off(self) -> None:
+        status, _, resp = self.request("PUT", "/samples/proj/a.bin", b"abc", {"Authorization": "Bearer nope"})
+        self.assertEqual(status, 401)
+        self.assertNotEqual((resp.getheader("Connection") or "").lower(), "close")
 
     def test_put_needs_project_and_name(self) -> None:
         status, _, _ = self.request("PUT", "/samples/proj", b"x", AUTH)
