@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import http.client
 import json
+import os
 import tempfile
 import threading
 import unittest
@@ -50,6 +51,16 @@ class SamplesServerTest(unittest.TestCase):
         status, data, _ = self.request("GET", "/healthz")
         self.assertEqual(status, 200)
         self.assertEqual(data, {"status": "ok"})
+
+    @unittest.skipIf(not hasattr(os, "geteuid") or os.geteuid() == 0, "root can write anywhere; POSIX only")
+    def test_healthz_fails_when_the_drop_is_not_writable(self) -> None:
+        self.root.chmod(0o555)
+        try:
+            status, data, _ = self.request("GET", "/healthz")
+        finally:
+            self.root.chmod(0o755)
+        self.assertEqual(status, 503)
+        self.assertIn("not writable", data["error"])
 
     def test_everything_else_needs_the_token(self) -> None:
         for method, path, body in [

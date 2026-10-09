@@ -128,7 +128,13 @@ class SamplesHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802 - stdlib naming
         if urlsplit(self.path).path == "/healthz":
-            self._send_json(HTTPStatus.OK, {"status": "ok"})
+            # Writability is the thing that actually breaks: a named volume
+            # seeded root-owned (by whichever container mounted it first)
+            # serves listings fine and fails every upload.
+            if os.access(self.root, os.W_OK | os.X_OK):
+                self._send_json(HTTPStatus.OK, {"status": "ok"})
+            else:
+                self._error(HTTPStatus.SERVICE_UNAVAILABLE, f"{self.root} is not writable by this service")
             return
         segments = self._route()
         if segments is None:
