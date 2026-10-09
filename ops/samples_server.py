@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Sample drop for the ops deployment of ghidra-mcp.
 
-The headless Ghidra server imports binaries by *path on its own filesystem*
-(`/import_file`); it has no upload endpoint. This is the missing half: a small
+The headless Ghidra server loads binaries by *path on its own filesystem*
+(`/load_program`); it has no upload endpoint. This is the missing half: a small
 HTTP service, no UI, that writes uploaded binaries into a directory the Ghidra
-container mounts read-only, and answers with the path to hand `import_file`.
+container mounts read-only, and answers with the path to hand `load_program`.
+(The bridge's `import_file` tool is GUI-only; headless it refuses.)
 
     PUT    /samples/<project>/<name>   raw body -> 201 {"path", "sha256", "size"}
                                        same bytes again -> 200 (idempotent)

@@ -10,7 +10,7 @@ and `.github/workflows/ops-image.yml`. Nothing upstream is modified.
 | ------------------------------- | ----------------------------------------------------------------------------------- |
 | `ops/Dockerfile`                | Adds the MCP bridge (from `uv.lock`) and the upload drop to upstream's server image |
 | `ops/docker-bake.hcl`           | Builds upstream's `docker/Dockerfile` and feeds it to the above as `server`         |
-| `ops/samples_server.py`         | `PUT /samples/<project>/<name>`: puts binaries where `import_file` can see them      |
+| `ops/samples_server.py`         | `PUT /samples/<project>/<name>`: puts binaries where `load_program` can see them     |
 | `ops/test_samples_server.py`    | Its tests (`python3 -m unittest discover -s ops`)                                    |
 | `.github/workflows/ops-image.yml` | Tests, builds, pushes `ghcr.io/cinderblock/ghidra-mcp:<sha>`, prints a `pin.json` |
 
